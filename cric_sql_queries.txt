@@ -1,0 +1,120 @@
+SQL QUERIES:
+
+1. Top 10 Batsmen by Total Runs in ODI Matches:
+
+USE ODIData;
+
+SELECT p.player_name, SUM(d.runs_batter) AS total_runs
+FROM Deliveries d
+JOIN Players p ON d.batter = p.player_name
+GROUP BY p.player_name
+ORDER BY total_runs DESC
+LIMIT 10;
+
+2. Leading Wicket-takers in T20 Matches:
+
+USE T20CricketData;
+
+SELECT d.bowler, COUNT(*) AS wickets
+FROM Deliveries d
+JOIN MatchInfo m ON d.inning_id IN (SELECT inning_id FROM Innings WHERE Innings.match_id = m.match_id AND m.match_type = 'T20')
+WHERE d.player_out IS NOT NULL
+GROUP BY d.bowler
+ORDER BY wickets DESC
+LIMIT 10;
+
+3. Team with the Highest Win Percentage in Test Cricket:
+
+USE CricketData;
+
+SELECT team, (SUM(CASE WHEN team1 = winner THEN 1 ELSE 0 END) + SUM(CASE WHEN team2 = winner THEN 1 ELSE 0 END)) / COUNT(*) AS win_percentage
+FROM (
+    SELECT team1 AS team FROM MatchInfo WHERE match_type = 'Test'
+    UNION ALL
+    SELECT team2 AS team FROM MatchInfo WHERE match_type = 'Test'
+) AS all_teams
+GROUP BY team
+ORDER BY win_percentage DESC
+LIMIT 1;
+
+4. Total Number of Centuries Across All Match Types:
+
+SELECT SUM(CASE WHEN runs_batter >= 100 THEN 1 ELSE 0 END) AS total_centuries
+FROM (
+    SELECT runs_batter FROM Deliveries JOIN Innings ON Deliveries.inning_id = Innings.inning_id JOIN MatchInfo ON Innings.match_id = MatchInfo.match_id
+    UNION ALL
+    SELECT runs_batter FROM Deliveries JOIN Innings ON Deliveries.inning_id = Innings.inning_id JOIN T20CricketData.MatchInfo ON Innings.match_id = T20CricketData.MatchInfo.match_id
+    UNION ALL
+    SELECT runs_batter FROM Deliveries JOIN Innings ON Deliveries.inning_id = Innings.inning_id JOIN ODIData.MatchInfo ON Innings.match_id = ODIData.MatchInfo.match_id
+) AS all_runs;
+
+5. Matches with the Narrowest Margin of Victory (Test Matches):
+
+USE CricketData;
+
+SELECT match_id, 
+       CASE 
+           WHEN win_by_runs > 0 THEN win_by_runs 
+           ELSE win_by_wickets 
+       END AS margin_of_victory
+FROM MatchInfo
+WHERE match_type = 'Test'
+ORDER BY margin_of_victory ASC
+LIMIT 10; 
+
+6. Average Score in First Innings of ODIs:
+
+USE ODIData;
+
+SELECT AVG(SUM(d.runs_total)) AS avg_first_innings_score
+FROM Deliveries d
+JOIN Innings i ON d.inning_id = i.inning_id
+JOIN MatchInfo m ON i.match_id = m.match_id
+WHERE i.inning_id = 1 
+GROUP BY m.match_id;
+
+7. Most Successful Team at Chasing in T20s:
+
+USE T20CricketData;
+
+SELECT toss_winner, COUNT(*) AS total_matches, 
+SUM(CASE WHEN toss_winner != winner THEN 1 ELSE 0 END) AS wins_while_chasing
+FROM MatchInfo
+WHERE toss_decision = 'field'
+GROUP BY toss_winner
+ORDER BY (SUM(CASE WHEN toss_winner != winner THEN 1 ELSE 0 END) / COUNT(*)) DESC
+LIMIT 1;
+
+8. Players with Most Man-of-the-Match Awards:
+
+USE CricketData; 
+
+SELECT player_of_match, COUNT(*) AS man_of_the_match_awards
+FROM MatchInfo
+GROUP BY player_of_match
+ORDER BY man_of_the_match_awards DESC
+LIMIT 10;
+
+9. Bowlers with Most 4-Wicket Hauls in Tests:
+
+USE CricketData;
+
+SELECT d.bowler, COUNT(*) AS four_wicket_hauls
+FROM Deliveries d
+JOIN Innings i ON d.inning_id = i.inning_id
+JOIN MatchInfo m ON i.match_id = m.match_id
+WHERE m.match_type = 'Test'
+GROUP BY d.bowler
+HAVING COUNT(*) >= 4
+ORDER BY four_wicket_hauls DESC;
+
+10. Venues with Highest Average Scores in ODIs:
+
+USE ODIData;
+
+SELECT m.venue, AVG(SUM(d.runs_total)) AS avg_score
+FROM Deliveries d
+JOIN Innings i ON d.inning_id = i.inning_id
+JOIN MatchInfo m ON i.match_id = m.match_id
+GROUP BY m.venue
+ORDER BY avg_score DESC;
